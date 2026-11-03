@@ -47,7 +47,7 @@
           <div class="security-note">
             <span class="note-icon">◇</span>
             <strong>Захист секретів</strong>
-            <p>Не вставляйте service-role key сюди. Використовуйте лише публічний anon key та Supabase Auth.</p>
+            <p>Використовуйте лише публічний anon / publishable key. Доступ до профілів контролюється RLS у Supabase.</p>
           </div>
         </aside>
 
@@ -66,31 +66,13 @@
                 <input id="anon-key" type="password" autocomplete="off" placeholder="sb_publishable_… або legacy anon JWT">
                 <span class="field-hint">Публічний ключ проєкту, не service-role secret.</span>
               </label>
-              <label class="field">Config Edge Function
+              <label class="field field-wide">Extension Config Function
                 <input id="config-function" type="text" value="twothunder-config" spellcheck="false">
-              </label>
-              <label class="field">Admin Edge Function
-                <input id="admin-function" type="text" value="twothunder-admin" spellcheck="false">
               </label>
             </div>
             <div class="panel-actions">
               <button id="save-connection" class="button button-secondary" type="button">Зберегти підключення</button>
-              <button id="test-connection" class="button button-outline" type="button">Перевірити backend</button>
-            </div>
-            <div class="auth-box">
-              <div class="auth-heading">
-                <div><h3>Вхід адміністратора</h3><p>Supabase Auth session використовується лише для викликів Admin Edge Function.</p></div>
-                <button id="sign-out" class="text-button" type="button" hidden>Вийти</button>
-              </div>
-              <div class="form-grid auth-fields">
-                <label class="field">Email
-                  <input id="auth-email" type="email" autocomplete="username" placeholder="owner@example.com">
-                </label>
-                <label class="field">Пароль
-                  <input id="auth-password" type="password" autocomplete="current-password" placeholder="Пароль Supabase Auth">
-                </label>
-              </div>
-              <div class="panel-actions"><button id="sign-in" class="button button-primary" type="button">Увійти через Supabase</button><span id="auth-state" class="inline-state">Не авторизовано</span></div>
+              <button id="test-connection" class="button button-outline" type="button">Перевірити REST доступ</button>
             </div>
           </section>
 
@@ -100,12 +82,12 @@
               <span class="step-badge">02</span>
             </div>
             <div class="table-toolbar">
-              <p class="section-copy">Ролі: owner, co_owner, admin, user. Доступ контролюється сервером, а не клієнтським інтерфейсом.</p>
+              <p class="section-copy">Профілі читаються напряму з public.profiles через REST API. Для читання застосовуються Supabase RLS-політики; таблиця працює в режимі перегляду.</p>
               <button id="refresh-users" class="button button-outline button-small" type="button">Оновити список</button>
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Нікнейм</th><th>Роль</th><th>Статус</th><th>Остання активність</th><th>Дія</th></tr></thead>
+                <thead><tr><th>Нікнейм</th><th>Роль</th><th>Статус</th><th>Остання активність</th></tr></thead>
                 <tbody id="users-body"></tbody>
               </table>
               <div id="empty-users" class="empty-state" hidden>Користувачів поки немає</div>
@@ -123,7 +105,7 @@
               <span class="inline-state">Нікнейм користувача зберігається локально у popup.</span>
             </div>
           </section>
-          <footer class="footer-note">twoThunder Control · GitHub Pages ready · Supabase Edge Functions required for production</footer>
+          <footer class="footer-note">twoThunder Control · GitHub Pages ready · Supabase REST API</footer>
         </div>
       </section>
     </main>
