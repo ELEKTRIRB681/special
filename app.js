@@ -61,9 +61,12 @@
   }
 
   function renderConnectionForm() {
-    $("project-url").value = state.settings.projectUrl;
-    $("anon-key").value = state.settings.anonKey;
-    $("config-function").value = state.settings.configFunction;
+    const projectUrlInput = $("project-url");
+    const anonKeyInput = $("anon-key");
+    const configFunctionInput = $("config-function");
+    if (projectUrlInput) projectUrlInput.value = state.settings.projectUrl;
+    if (anonKeyInput) anonKeyInput.value = state.settings.anonKey;
+    if (configFunctionInput) configFunctionInput.value = state.settings.configFunction;
   }
 
   function loadSavedSettings() {
@@ -135,6 +138,35 @@
     return profiles;
   }
 
+  async function updateProfileRole(nickname, role) {
+    if (!validProjectUrl(state.settings.projectUrl) || !state.settings.anonKey) {
+      throw new Error("Вкажіть і збережіть Supabase Project URL та Publishable Key.");
+    }
+    if (!["owner", "co_owner", "admin", "user"].includes(role)) {
+      throw new Error("Вказано невідому роль.");
+    }
+
+    const url = new URL(profilesUrl());
+    url.searchParams.set("nickname", `eq.${nickname}`);
+    const response = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        apikey: state.settings.anonKey,
+        Authorization: `Bearer ${state.settings.anonKey}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Prefer: "return=representation"
+      },
+      body: JSON.stringify({ role }),
+      cache: "no-store",
+      credentials: "omit"
+    });
+    const updatedProfiles = await parseResponse(response);
+    if (!Array.isArray(updatedProfiles) || updatedProfiles.length === 0) {
+      throw new Error("Профіль не оновлено. Перевірте нікнейм та Supabase RLS-політики.");
+    }
+  }
+
   function renderUsers(profiles) {
     state.users = Array.isArray(profiles) ? profiles : [];
     const body = $("users-body");
@@ -147,7 +179,25 @@
       nickname.textContent = String(profile.nickname ?? profile.user_nickname ?? "—");
 
       const role = document.createElement("td");
-      role.textContent = String(profile.role ?? "user");
+      const currentRole = String(profile.role ?? "user").toLowerCase();
+      const roleSelect = document.createElement("select");
+      roleSelect.className = "role-select";
+      roleSelect.setAttribute("aria-label", `Роль користувача ${nickname.textContent}`);
+      for (const roleName of ["owner", "co_owner", "admin", "user"]) {
+        const option = document.createElement("option");
+        option.value = roleName;
+        option.textContent = roleName;
+        option.selected = roleName === currentRole;
+        roleSelect.appendChild(option);
+      }
+      roleSelect.dataset.nickname = String(profile.nickname ?? profile.user_nickname ?? "");
+      roleSelect.dataset.currentRole = ["owner", "co_owner", "admin", "user"].includes(currentRole)
+        ? currentRole
+        : "user";
+      if (!["owner", "co_owner", "admin", "user"].includes(currentRole)) {
+        roleSelect.value = "user";
+      }
+      role.appendChild(roleSelect);
 
       const banned = profile.is_banned === true || profile.banned === true;
       const statusCell = document.createElement("td");
@@ -160,6 +210,38 @@
       activity.textContent = String(profile.last_seen ?? profile.lastSeen ?? "—");
       row.append(nickname, role, statusCell, activity);
       body.append(row);
+    }
+  }
+
+  async function handleRoleChange(event) {
+    const select = event.target.closest(".role-select");
+    if (!select) return;
+
+    const nickname = select.dataset.nickname;
+    const previousRole = select.dataset.currentRole || "user";
+    const newRole = select.value;
+    if (!nickname) {
+      select.value = previousRole;
+      showNotice("Не вдалося змінити роль: у профілю відсутній нікнейм.", "error");
+      return;
+    }
+    if (newRole === previousRole) return;
+
+    select.disabled = true;
+    try {
+      await updateProfileRole(nickname, newRole);
+      select.dataset.currentRole = newRole;
+      showNotice(`Роль користувача ${nickname} змінено на ${newRole}.`);
+      try {
+        await fetchProfiles();
+      } catch (error) {
+        showNotice(`Роль оновлено, але список не вдалося перезавантажити: ${error.message}`, "error");
+      }
+    } catch (error) {
+      select.value = previousRole;
+      showNotice(`Не вдалося оновити роль ${nickname}: ${error.message}`, "error");
+    } finally {
+      select.disabled = false;
     }
   }
 
@@ -228,6 +310,9 @@
   }
 
   function bindEvents() {
+    $("users-body").addEventListener("change", event => {
+      void handleRoleChange(event);
+    });
     $("mock-mode").addEventListener("click", () => {
       void setMockMode(!state.mock);
     });
